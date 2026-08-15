@@ -25,6 +25,25 @@ export function monthsPresent(txns) {
   return [...set].sort((a, b) => (a < b ? 1 : -1))
 }
 
+// Per-day rollup keyed by ISO date, for the calendar. Each entry has income,
+// expense, net, and the day's transactions (so a day can be opened in place).
+export function dailyTotals(txns) {
+  const byDay = new Map()
+  for (const t of txns) {
+    if (!t.date) continue
+    let d = byDay.get(t.date)
+    if (!d) {
+      d = { income: 0, expense: 0, net: 0, txns: [] }
+      byDay.set(t.date, d)
+    }
+    if (t.type === 'income') d.income += t.amount
+    else d.expense += t.amount
+    d.net = d.income - d.expense
+    d.txns.push(t)
+  }
+  return byDay
+}
+
 // Income vs expense totals for a set of transactions.
 export function totals(txns) {
   let income = 0

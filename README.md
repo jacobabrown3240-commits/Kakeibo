@@ -27,6 +27,10 @@ Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 - **✅ Human-in-the-loop review.** Every detected row is shown in an editable
   table. Fix dates, amounts, or income/expense before saving. A **paste-text**
   fallback works if OCR struggles with a screenshot.
+- **📅 Spending calendar.** A month-at-a-glance grid where each day is tinted by
+  how much you spent (darker red = more), with a green dot on income days. Step
+  through months, see the month's income/spent/net, and tap any day to expand its
+  transactions.
 - **📈 Balance trend.** An area line of your running balance week by week — the
   headline "is my money going up or down?" view. Set an optional starting balance
   so it reflects your real money.
@@ -102,7 +106,7 @@ src/
     csv.js         # bank CSV parsing + column detection
     ofx.js         # OFX/QFX parsing
     categorize.js  # chart accent colors
-    aggregate.js   # weekly series + running-balance rollups
+    aggregate.js   # weekly series, running-balance + daily rollups
     date.js        # date parsing + week/month helpers
     storage.js     # localStorage persistence
     export.js      # JSON/CSV export + backup import
@@ -112,6 +116,7 @@ src/
     charts.jsx     # Recharts chart components
   views/
     Dashboard.jsx
+    CalendarView.jsx  # monthly spending calendar (heat by daily spend)
     ImportView.jsx
     TransactionsView.jsx
     SettingsView.jsx

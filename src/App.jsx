@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { loadState, saveState, DEFAULT_STATE } from './lib/storage.js'
 import { useTheme } from './lib/theme.js'
 import Dashboard from './views/Dashboard.jsx'
+import CalendarView from './views/CalendarView.jsx'
 import ImportView from './views/ImportView.jsx'
 import TransactionsView from './views/TransactionsView.jsx'
 import SettingsView from './views/SettingsView.jsx'
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'calendar', label: 'Calendar', icon: '📅' },
   { id: 'import', label: 'Import', icon: '📷' },
   { id: 'transactions', label: 'Transactions', icon: '🧾' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -53,6 +55,8 @@ export default function App() {
   const view = useMemo(() => {
     const common = { state, dark, chrome }
     switch (tab) {
+      case 'calendar':
+        return <CalendarView {...common} goImport={() => setTab('import')} />
       case 'import':
         return (
           <ImportView

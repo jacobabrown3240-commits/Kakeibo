@@ -112,3 +112,43 @@ export function todayISO() {
 export function currentMonthKey() {
   return todayISO().slice(0, 7)
 }
+
+// Shift a 'YYYY-MM' month key by `delta` months (can be negative).
+export function addMonths(mk, delta) {
+  const [y, m] = mk.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// Weekday header labels ordered for the given week start (0=Sun..6=Sat).
+export function weekdayLabels(weekStartsOn = 1) {
+  return Array.from({ length: 7 }, (_, i) => WEEKDAYS[(weekStartsOn + i) % 7])
+}
+
+// A month laid out as a grid of weeks. Each cell is { iso, inMonth }, with
+// leading/trailing days from adjacent months so every week has 7 cells.
+export function monthGrid(mk, weekStartsOn = 1) {
+  const [y, m] = mk.split('-').map(Number)
+  const first = new Date(y, m - 1, 1)
+  const lead = (first.getDay() - weekStartsOn + 7) % 7
+  const start = new Date(y, m - 1, 1 - lead)
+
+  const weeks = []
+  const cur = new Date(start)
+  // 6 rows covers every possible month layout; drop a trailing all-next row.
+  for (let w = 0; w < 6; w++) {
+    const row = []
+    for (let d = 0; d < 7; d++) {
+      row.push({
+        iso: toISO(cur.getFullYear(), cur.getMonth() + 1, cur.getDate()),
+        inMonth: cur.getMonth() === m - 1,
+      })
+      cur.setDate(cur.getDate() + 1)
+    }
+    if (w === 5 && row.every((c) => !c.inMonth)) break
+    weeks.push(row)
+  }
+  return weeks
+}
