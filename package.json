@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "A weekly budgeting app that visualizes weekly spending and monthly income vs. spending, with screenshot (OCR) transaction import.",
+  "description": "A weekly budgeting app that visualizes weekly spending and monthly income vs. spending, with PNC statement PDF, CSV/OFX, and screenshot (OCR) transaction import.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",

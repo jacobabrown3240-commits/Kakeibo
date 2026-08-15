@@ -2,15 +2,19 @@
 
 A private, **local-first** budgeting app that shows, week by week, whether your
 **money is trending up or down**. Every transaction is simply **income or
-expense** — no categories to fuss with. Import from a bank CSV/OFX export or a
-statement screenshot; everything is processed on your device, so nothing is ever
-uploaded.
+expense** — no categories to fuss with. Import from a PNC statement PDF, a bank
+CSV/OFX export, or a statement screenshot; everything is processed on your
+device, so nothing is ever uploaded.
 
 Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 
 ## Features
 
-- **📥 Three import methods**, all processed on-device — nothing is uploaded:
+- **📥 Four import methods**, all processed on-device — nothing is uploaded:
+  - **📑 PNC PDF** — drop a PNC bank statement PDF and it's read on-device with
+    [PDF.js](https://mozilla.github.io/pdf.js/) (loaded on demand). Deposits,
+    card purchases, and other deductions are sorted into income/expense by
+    statement section. Review, then **Download CSV** or add straight to Kakeibo.
   - **CSV** — import your bank's transactions export. Columns are auto-detected
     with an editable mapping (date / description / amount, or separate
     debit/credit). Accurate and private.
@@ -40,6 +44,7 @@ Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 - [Tailwind CSS](https://tailwindcss.com/) for styling
 - [Recharts](https://recharts.org/) for charts
 - [Tesseract.js](https://tesseract.js.org/) for in-browser OCR
+- [PDF.js](https://mozilla.github.io/pdf.js/) for in-browser PDF text extraction
 
 ## Getting started
 
@@ -60,9 +65,12 @@ so it works from a subpath too.
 
 ## How import works
 
-Pick a source on the **Import** tab. All three feed the same editable review
+Pick a source on the **Import** tab. All four feed the same editable review
 table, so you always confirm before anything is saved:
 
+- **PNC PDF:** pick the **statement year** (PNC rows show only MM/DD), then drop
+  or browse to the statement PDF → it's read and sorted into income/expense
+  automatically. From the review table you can **Download CSV** or add the rows.
 - **CSV:** choose the file → confirm the auto-detected column mapping (and, for a
   single signed amount column, whether spending shows as negative or positive) →
   **Parse**.
@@ -86,6 +94,8 @@ backup** to keep a copy.
 ```
 src/
   lib/
+    pdf.js         # PDF.js wrapper (on-demand, rebuilds columnar lines)
+    pnc.js         # PNC statement text -> transactions (section-aware)
     ocr.js         # Tesseract.js wrapper (in-browser OCR)
     preprocess.js  # image cleanup before OCR (upscale, binarize, invert)
     parse.js       # OCR/pasted text -> candidate transactions

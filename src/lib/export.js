@@ -38,6 +38,20 @@ export function exportCSV(transactions) {
   download(`kakeibo-transactions-${stamp()}.csv`, [header.join(','), ...rows].join('\n'), 'text/csv')
 }
 
+// Export review rows (from any importer — PDF, OCR, CSV) to a CSV file, before
+// they're saved into the app. Only rows kept (included) with a usable amount are
+// written; invalid dates are left as-is so the file mirrors what you reviewed.
+export function exportReviewCSV(rows, filename) {
+  const header = ['date', 'description', 'type', 'amount']
+  const body = rows
+    .filter((r) => r.include !== false && Number(r.amount) > 0)
+    .map((r) => [r.date || '', r.description || '', r.type || 'expense', Number(r.amount).toFixed(2)])
+    .map((cells) => cells.map(csvField).join(','))
+  const name = filename || `pnc-transactions-${stamp()}.csv`
+  download(name, [header.join(','), ...body].join('\n'), 'text/csv')
+  return body.length
+}
+
 // Validate + normalize an imported JSON backup into a usable state object.
 export function parseImportedJSON(text) {
   const parsed = JSON.parse(text)

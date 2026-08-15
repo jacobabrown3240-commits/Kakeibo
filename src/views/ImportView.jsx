@@ -4,12 +4,16 @@ import { ocrImages } from '../lib/ocr.js'
 import { parseTransactions, blankRow } from '../lib/parse.js'
 import { parseCSV, detectColumns, csvToTransactions, looksLikeHeader } from '../lib/csv.js'
 import { parseOFX, isOFX } from '../lib/ofx.js'
+import { extractPdfText, isPdf } from '../lib/pdf.js'
+import { parsePncStatement } from '../lib/pnc.js'
+import { exportReviewCSV } from '../lib/export.js'
 import { isValidISO } from '../lib/date.js'
 
 const thisYear = new Date().getFullYear()
 const YEARS = [thisYear, thisYear - 1, thisYear - 2, thisYear - 3]
 
 const MODES = [
+  { id: 'pdf', label: '📑 PNC PDF', hint: 'Turn a PNC bank statement PDF into transactions (and a CSV) on-device' },
   { id: 'screenshot', label: '📷 Screenshot', hint: 'Read a statement image on-device (OCR)' },
   { id: 'csv', label: '📄 CSV', hint: 'Import a transactions CSV from your bank' },
   { id: 'ofx', label: '🏦 OFX / QFX', hint: 'Import a bank OFX/QFX download (most accurate)' },
@@ -26,7 +30,7 @@ function readFileText(file) {
 
 export default function ImportView({ state, addTransactions, goToDashboard }) {
   const { settings } = state
-  const [mode, setMode] = useState('screenshot')
+  const [mode, setMode] = useState('pdf')
   const [rows, setRows] = useState([])
   const [error, setError] = useState('')
   const [savedMsg, setSavedMsg] = useState('')
@@ -87,6 +91,9 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
       </div>
       <p className="-mt-3 text-xs text-[#898781]">{MODES.find((m) => m.id === mode)?.hint}</p>
 
+      {mode === 'pdf' && (
+        <PDFPanel setRows={setRows} setError={setError} error={error} />
+      )}
       {mode === 'screenshot' && (
         <ScreenshotPanel setRows={setRows} setError={setError} error={error} />
       )}
@@ -104,6 +111,9 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
           actions={
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => setRows((p) => [...p, blankRow()])}>+ Add row</Button>
+              <Button variant="subtle" onClick={() => exportReviewCSV(rows)} disabled={!validCount}>
+                ⬇ Download CSV
+              </Button>
               <Button onClick={save} disabled={!validCount}>
                 Add {validCount} transaction{validCount === 1 ? '' : 's'}
               </Button>
@@ -124,6 +134,85 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
         </Card>
       )}
     </div>
+  )
+}
+
+/* ---------------- PNC PDF ---------------- */
+
+function PDFPanel({ setRows, setError, error }) {
+  const [fileName, setFileName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [statementYear, setStatementYear] = useState(thisYear)
+  const [count, setCount] = useState(null)
+  const fileRef = useRef(null)
+  const dropRef = useRef(null)
+
+  const handleFile = async (file) => {
+    if (!file) return
+    if (!isPdf(file)) { setError('Please choose a PDF file (your PNC statement download).'); return }
+    setError(''); setFileName(file.name); setBusy(true); setProgress(0); setCount(null); setRows([])
+    try {
+      const text = await extractPdfText(file, (p) => setProgress(p))
+      const parsed = parsePncStatement(text, { defaultYear: statementYear })
+      setRows(parsed)
+      setCount(parsed.length)
+      if (!parsed.length) {
+        setError('No transactions found in that PDF. If it is a scanned/image statement (no selectable text), the Screenshot tab (OCR) will work better.')
+      }
+    } catch (e) {
+      console.error(e)
+      setError('Could not read that PDF. It may be password-protected or a scanned image — try the Screenshot (OCR) tab.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title="Import a PNC statement PDF">
+      <div className="mb-3 rounded-lg bg-[#256abf]/10 border border-[#256abf]/25 px-3 py-2 text-xs text-[#52514e] dark:text-[#c3c2b7]">
+        Download your statement from PNC Online Banking as a <strong>PDF</strong> and drop it here. It’s read
+        entirely on your device — nothing is uploaded. Deposits, card purchases, and other deductions are sorted
+        into income/expense automatically; review below, then <strong>Download CSV</strong> or add them to Kakeibo.
+      </div>
+
+      <div
+        ref={dropRef}
+        onDragOver={(e) => { e.preventDefault(); dropRef.current?.classList.add('ring-2') }}
+        onDragLeave={() => dropRef.current?.classList.remove('ring-2')}
+        onDrop={(e) => { e.preventDefault(); dropRef.current?.classList.remove('ring-2'); handleFile(e.dataTransfer?.files?.[0]) }}
+        className="rounded-xl border-2 border-dashed border-black/15 dark:border-white/15 ring-[#2a78d6]/60 p-6 text-center transition"
+      >
+        <div className="text-3xl mb-2" aria-hidden>📑</div>
+        <p className="text-sm text-[#52514e] dark:text-[#c3c2b7]">
+          Drag & drop a statement PDF, or <button className="text-[#256abf] font-medium underline" onClick={() => fileRef.current?.click()}>browse</button>
+          {fileName && <span className="ml-2 text-[#898781]">· {fileName}</span>}
+        </p>
+        <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { handleFile(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-[#52514e] dark:text-[#c3c2b7]">Statement year</label>
+          <Select value={String(statementYear)} onChange={(v) => setStatementYear(Number(v))} options={YEARS.map(String)} />
+        </div>
+        <span className="text-xs text-[#898781]">PNC rows show only MM/DD, so this fills in the year.</span>
+      </div>
+
+      {busy && (
+        <div className="mt-3">
+          <div className="text-xs text-[#898781] mb-1">Reading PDF… {Math.round(progress * 100)}%</div>
+          <div className="h-1.5 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+            <div className="h-full bg-[#256abf] transition-all" style={{ width: `${progress * 100}%` }} />
+          </div>
+        </div>
+      )}
+
+      {count > 0 && !error && (
+        <p className="mt-3 text-sm text-[#0ca30c]">Found {count} transaction{count === 1 ? '' : 's'} — review them below.</p>
+      )}
+      {error && <p className="mt-3 text-sm text-[#d03b3b]">{error}</p>}
+    </Card>
   )
 }
 
