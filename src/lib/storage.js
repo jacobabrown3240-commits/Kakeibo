@@ -1,23 +1,32 @@
 // Local-first persistence. Everything lives in the browser's localStorage so no
 // financial data ever leaves the device. Export/import (see export.js) is the
 // path for backups and moving between devices.
-
-import { DEFAULT_CATEGORIES } from './categorize.js'
+//
+// Transactions are just { id, date, description, amount, type } where type is
+// 'income' | 'expense' — no categories.
 
 const KEY = 'kakeibo.state.v1'
 
 export const DEFAULT_STATE = {
-  version: 1,
+  version: 2,
   transactions: [],
-  categories: DEFAULT_CATEGORIES,
   settings: {
     currency: 'USD',
     weekStartsOn: 1, // Monday
-    monthlyIncome: 0, // optional expected income used as a fallback on the dashboard
+    startingBalance: 0, // optional opening balance the trend builds on
     theme: 'system', // 'light' | 'dark' | 'system'
   },
-  // Per-category weekly spending targets, e.g. { Groceries: 150 }.
-  weeklyBudgets: {},
+}
+
+// Normalize a transaction, dropping any legacy fields (e.g. category).
+function reviveTxn(t, i) {
+  return {
+    id: t.id || `t_${Date.now().toString(36)}_${i}`,
+    date: t.date,
+    description: String(t.description || ''),
+    amount: Math.abs(Number(t.amount) || 0),
+    type: t.type === 'income' ? 'income' : 'expense',
+  }
 }
 
 function reviveState(parsed) {
@@ -26,14 +35,7 @@ function reviveState(parsed) {
     ...DEFAULT_STATE,
     ...parsed,
     settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
-    categories:
-      Array.isArray(parsed.categories) && parsed.categories.length
-        ? parsed.categories
-        : DEFAULT_STATE.categories,
-    transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-    weeklyBudgets: parsed.weeklyBudgets && typeof parsed.weeklyBudgets === 'object'
-      ? parsed.weeklyBudgets
-      : {},
+    transactions: Array.isArray(parsed.transactions) ? parsed.transactions.map(reviveTxn) : [],
   }
 }
 

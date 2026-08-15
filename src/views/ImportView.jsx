@@ -25,7 +25,7 @@ function readFileText(file) {
 }
 
 export default function ImportView({ state, addTransactions, goToDashboard }) {
-  const { categories, settings } = state
+  const { settings } = state
   const [mode, setMode] = useState('screenshot')
   const [rows, setRows] = useState([])
   const [error, setError] = useState('')
@@ -88,13 +88,13 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
       <p className="-mt-3 text-xs text-[#898781]">{MODES.find((m) => m.id === mode)?.hint}</p>
 
       {mode === 'screenshot' && (
-        <ScreenshotPanel categories={categories} setRows={setRows} setError={setError} error={error} />
+        <ScreenshotPanel setRows={setRows} setError={setError} error={error} />
       )}
       {mode === 'csv' && (
-        <CSVPanel categories={categories} setRows={setRows} setError={setError} error={error} readFileText={readFileText} />
+        <CSVPanel setRows={setRows} setError={setError} error={error} readFileText={readFileText} />
       )}
       {mode === 'ofx' && (
-        <OFXPanel categories={categories} setRows={setRows} setError={setError} error={error} readFileText={readFileText} />
+        <OFXPanel setRows={setRows} setError={setError} error={error} readFileText={readFileText} />
       )}
 
       {rows.length > 0 && (
@@ -103,7 +103,7 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
           subtitle="Fix anything that looks wrong, then save. Uncheck rows to skip them."
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setRows((p) => [...p, blankRow(categories.includes('Other') ? 'Other' : categories[0])])}>+ Add row</Button>
+              <Button variant="ghost" onClick={() => setRows((p) => [...p, blankRow()])}>+ Add row</Button>
               <Button onClick={save} disabled={!validCount}>
                 Add {validCount} transaction{validCount === 1 ? '' : 's'}
               </Button>
@@ -117,7 +117,6 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
           )}
           <ReviewTable
             rows={rows}
-            categories={categories}
             currency={settings.currency}
             updateRow={(id, patch) => setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)))}
             removeRow={(id) => setRows((p) => p.filter((r) => r.id !== id))}
@@ -130,7 +129,7 @@ export default function ImportView({ state, addTransactions, goToDashboard }) {
 
 /* ---------------- Screenshot (OCR) ---------------- */
 
-function ScreenshotPanel({ categories, setRows, setError, error }) {
+function ScreenshotPanel({ setRows, setError, error }) {
   const [images, setImages] = useState([])
   const [rawText, setRawText] = useState('')
   const [showRaw, setShowRaw] = useState(false)
@@ -177,7 +176,7 @@ function ScreenshotPanel({ categories, setRows, setError, error }) {
     try {
       const text = await ocrImages(images.map((i) => i.file), (p) => setProgress(p))
       setRawText(text)
-      const parsed = parseTransactions(text, { defaultYear: statementYear, categories })
+      const parsed = parseTransactions(text, { defaultYear: statementYear })
       setRows(parsed)
       if (!parsed.length) {
         setError('No transactions detected. Try a clearer/zoomed-in screenshot, or paste the text below. For best accuracy, a CSV or OFX export from your bank works far better.')
@@ -252,7 +251,7 @@ function ScreenshotPanel({ categories, setRows, setError, error }) {
             className="w-full rounded-lg border border-black/15 dark:border-white/15 bg-white dark:bg-[#111] text-sm px-3 py-2 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2a78d6]/60"
           />
           <div className="mt-2">
-            <Button variant="subtle" onClick={() => { const p = parseTransactions(rawText, { defaultYear: statementYear, categories }); setRows(p); setError(p.length ? '' : 'No transactions found in that text.') }} disabled={!rawText.trim()}>Parse text</Button>
+            <Button variant="subtle" onClick={() => { const p = parseTransactions(rawText, { defaultYear: statementYear }); setRows(p); setError(p.length ? '' : 'No transactions found in that text.') }} disabled={!rawText.trim()}>Parse text</Button>
           </div>
         </div>
       )}
@@ -262,7 +261,7 @@ function ScreenshotPanel({ categories, setRows, setError, error }) {
 
 /* ---------------- CSV ---------------- */
 
-function CSVPanel({ categories, setRows, setError, error, readFileText }) {
+function CSVPanel({ setRows, setError, error, readFileText }) {
   const [csvRows, setCsvRows] = useState(null)
   const [hasHeader, setHasHeader] = useState(true)
   const [mapping, setMapping] = useState(null)
@@ -295,7 +294,7 @@ function CSVPanel({ categories, setRows, setError, error, readFileText }) {
 
   const doParse = () => {
     if (!csvRows || !mapping) return
-    const parsed = csvToTransactions(csvRows, mapping, { hasHeader, expenseSign, categories })
+    const parsed = csvToTransactions(csvRows, mapping, { hasHeader, expenseSign })
     setRows(parsed)
     setError(parsed.length ? '' : 'No rows could be parsed — check the column mapping.')
   }
@@ -324,7 +323,6 @@ function CSVPanel({ categories, setRows, setError, error, readFileText }) {
           <div className="grid sm:grid-cols-3 gap-3">
             <MapField label="Date column"><Select value={String(mapping.date)} onChange={(v) => setMapping({ ...mapping, date: Number(v) })} options={colOptions(false)} /></MapField>
             <MapField label="Description column"><Select value={String(mapping.description)} onChange={(v) => setMapping({ ...mapping, description: Number(v) })} options={colOptions(false)} /></MapField>
-            <MapField label="Category column (optional)"><Select value={String(mapping.category)} onChange={(v) => setMapping({ ...mapping, category: Number(v) })} options={colOptions(true)} /></MapField>
             <MapField label="Amount column"><Select value={String(mapping.amount)} onChange={(v) => setMapping({ ...mapping, amount: Number(v) })} options={colOptions(true)} /></MapField>
             <MapField label="Debit column (optional)"><Select value={String(mapping.debit)} onChange={(v) => setMapping({ ...mapping, debit: Number(v) })} options={colOptions(true)} /></MapField>
             <MapField label="Credit column (optional)"><Select value={String(mapping.credit)} onChange={(v) => setMapping({ ...mapping, credit: Number(v) })} options={colOptions(true)} /></MapField>
@@ -345,7 +343,7 @@ function CSVPanel({ categories, setRows, setError, error, readFileText }) {
 
 /* ---------------- OFX / QFX ---------------- */
 
-function OFXPanel({ categories, setRows, setError, error, readFileText }) {
+function OFXPanel({ setRows, setError, error, readFileText }) {
   const [fileName, setFileName] = useState('')
   const fileRef = useRef(null)
 
@@ -355,7 +353,7 @@ function OFXPanel({ categories, setRows, setError, error, readFileText }) {
     try {
       const text = await readFileText(file)
       if (!isOFX(text)) { setError("That doesn't look like an OFX/QFX file."); return }
-      const parsed = parseOFX(text, { categories })
+      const parsed = parseOFX(text)
       setRows(parsed)
       setError(parsed.length ? '' : 'No transactions found in that file.')
     } catch (e) {
@@ -391,16 +389,15 @@ function MapField({ label, children }) {
 
 /* ---------------- Shared review table ---------------- */
 
-function ReviewTable({ rows, categories, currency, updateRow, removeRow }) {
+function ReviewTable({ rows, currency, updateRow, removeRow }) {
   return (
     <div className="overflow-x-auto thin-scroll -mx-2">
-      <table className="w-full text-sm border-collapse min-w-[720px]">
+      <table className="w-full text-sm border-collapse min-w-[560px]">
         <thead>
           <tr className="text-left text-xs uppercase tracking-wide text-[#898781]">
             <th className="px-2 py-2 w-8"></th>
             <th className="px-2 py-2">Date</th>
             <th className="px-2 py-2">Description</th>
-            <th className="px-2 py-2">Category</th>
             <th className="px-2 py-2">Type</th>
             <th className="px-2 py-2 text-right">Amount</th>
             <th className="px-2 py-2 w-8"></th>
@@ -415,12 +412,9 @@ function ReviewTable({ rows, categories, currency, updateRow, removeRow }) {
                   <input type="checkbox" checked={r.include} onChange={(e) => updateRow(r.id, { include: e.target.checked })} aria-label="Include row" />
                 </td>
                 <td className="px-2 py-1.5"><TextInput type="date" value={r.date} onChange={(e) => updateRow(r.id, { date: e.target.value })} className="w-[9.5rem]" /></td>
-                <td className="px-2 py-1.5"><TextInput value={r.description} onChange={(e) => updateRow(r.id, { description: e.target.value })} className="w-full min-w-[10rem]" /></td>
+                <td className="px-2 py-1.5"><TextInput value={r.description} onChange={(e) => updateRow(r.id, { description: e.target.value })} className="w-full min-w-[12rem]" /></td>
                 <td className="px-2 py-1.5">
-                  <Select value={categories.includes(r.category) ? r.category : 'Other'} onChange={(v) => updateRow(r.id, { category: v })} options={categories} />
-                </td>
-                <td className="px-2 py-1.5">
-                  <Select value={r.type} onChange={(v) => updateRow(r.id, { type: v, category: v === 'income' && r.category === 'Other' ? 'Income' : r.category })} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }]} />
+                  <Select value={r.type} onChange={(v) => updateRow(r.id, { type: v })} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }]} />
                 </td>
                 <td className="px-2 py-1.5 text-right"><TextInput type="number" step="0.01" min="0" value={r.amount} onChange={(e) => updateRow(r.id, { amount: e.target.value })} className="w-28 text-right tabular-nums" /></td>
                 <td className="px-2 py-1.5">

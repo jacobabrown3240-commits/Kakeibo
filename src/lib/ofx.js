@@ -3,7 +3,6 @@
 // <STMTTRN> block and pull values that run until the next tag or line end.
 // This format is fully structured, so results are reliable — no OCR guessing.
 
-import { guessCategory } from './categorize.js'
 import { toISO } from './date.js'
 
 // Read a single-line tag value: <TAG>value  (value ends at '<' or line end).
@@ -31,8 +30,7 @@ export function isOFX(text) {
   return /<STMTTRN>|<OFX>|OFXHEADER/i.test(String(text || ''))
 }
 
-export function parseOFX(text, opts = {}) {
-  const { categories } = opts
+export function parseOFX(text) {
   const s = String(text || '')
   const blocks = s.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) || []
 
@@ -53,16 +51,12 @@ export function parseOFX(text, opts = {}) {
     const description = [name, memo].filter(Boolean).join(' — ') || '(no description)'
 
     // OFX convention: negative TRNAMT = money out (expense).
-    const type = amt < 0 ? 'expense' : 'income'
-    const category = guessCategory(description, categories)
-
     out.push({
       id: nextId(),
       date,
       description,
       amount: Math.abs(amt),
-      type,
-      category: type === 'income' && category === 'Other' ? 'Income' : category,
+      type: amt < 0 ? 'expense' : 'income',
       include: true,
     })
   }

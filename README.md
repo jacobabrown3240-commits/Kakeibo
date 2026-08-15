@@ -1,9 +1,10 @@
 # 🪙 Kakeibo — Weekly Budgeting
 
-A private, **local-first** budgeting app that visualizes your **weekly spending**
-and how your **monthly spending compares to your income**. Import transactions by
-**screenshotting your credit-card or debit statements** — the text is read on your
-device with in-browser OCR, so nothing is ever uploaded.
+A private, **local-first** budgeting app that shows, week by week, whether your
+**money is trending up or down**. Every transaction is simply **income or
+expense** — no categories to fuss with. Import from a bank CSV/OFX export or a
+statement screenshot; everything is processed on your device, so nothing is ever
+uploaded.
 
 Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 
@@ -19,15 +20,16 @@ Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
     image. It's preprocessed (upscale, grayscale, Otsu binarize, dark-mode
     auto-invert) and read locally with a tuned [Tesseract.js](https://tesseract.js.org/)
     worker. Best-effort; CSV/OFX are more reliable for messy statements.
-- **✅ Human-in-the-loop review.** Every detected row is auto-categorized and shown
-  in an editable table. Fix dates, amounts, categories, or income/expense before
-  saving. A **paste-text** fallback works if OCR struggles with a screenshot.
-- **📊 Weekly spending.** A stacked bar per week shows where the money went,
-  broken down by category (top categories + "Other").
-- **📈 Monthly income vs. spending.** A 12-month trend of income against spending,
-  plus net saved, savings rate, and a projected month-end spend.
+- **✅ Human-in-the-loop review.** Every detected row is shown in an editable
+  table. Fix dates, amounts, or income/expense before saving. A **paste-text**
+  fallback works if OCR struggles with a screenshot.
+- **📈 Balance trend.** An area line of your running balance week by week — the
+  headline "is my money going up or down?" view. Set an optional starting balance
+  so it reflects your real money.
+- **📊 Weekly cash flow.** A line of each week's net (money in minus money out),
+  with a marker per week: above the zero line is a surplus, below is a shortfall.
 - **🧾 Transaction management.** Search, filter by month/type, inline-edit, and
-  bulk-delete.
+  bulk-delete. Income vs. expense only — no categories.
 - **🔒 Local-first + backups.** All data lives in your browser (`localStorage`).
   Export a JSON backup or CSV, and import a backup to restore or move devices.
 - **🌗 Light & dark themes** with a colorblind-safe, validated chart palette.
@@ -85,9 +87,12 @@ backup** to keep a copy.
 src/
   lib/
     ocr.js         # Tesseract.js wrapper (in-browser OCR)
+    preprocess.js  # image cleanup before OCR (upscale, binarize, invert)
     parse.js       # OCR/pasted text -> candidate transactions
-    categorize.js  # default categories, keyword classifier, chart palette
-    aggregate.js   # weekly/monthly/category rollups for charts
+    csv.js         # bank CSV parsing + column detection
+    ofx.js         # OFX/QFX parsing
+    categorize.js  # chart accent colors
+    aggregate.js   # weekly series + running-balance rollups
     date.js        # date parsing + week/month helpers
     storage.js     # localStorage persistence
     export.js      # JSON/CSV export + backup import

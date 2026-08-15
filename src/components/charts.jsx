@@ -1,66 +1,29 @@
-// Chart components built on Recharts, styled from the resolved theme tokens so
-// they read correctly in both light and dark. Forms follow the data-viz method:
-//  - Weekly spending  -> stacked bars (composition of a magnitude over weeks)
-//  - Monthly overview -> grouped bars, income vs expense, single $ axis
-//  - Category totals  -> ranked horizontal bars (magnitude, one hue)
+// Line/area charts for the money trend. Forms follow the data-viz method:
+// change-over-time -> line/area with a crosshair + tooltip. No bars, no
+// categories.
+//   - Balance trend  -> area of the running balance (is my money up or down?)
+//   - Weekly cash flow -> line of each week's net (money in minus money out)
 
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  Cell,
-  LabelList,
+  ReferenceLine,
+  Dot,
 } from 'recharts'
 import { formatCurrency } from '../lib/aggregate.js'
 
 const compactCurrency = (n) => {
   const abs = Math.abs(n)
-  if (abs >= 1000) return `$${(n / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`
-  return `$${Math.round(n)}`
-}
-
-function TooltipBox({ chrome, title, rows, total, currency }) {
-  return (
-    <div
-      className="rounded-lg border shadow-md text-xs px-3 py-2"
-      style={{
-        background: chrome.surface,
-        borderColor: chrome.grid,
-        color: chrome.textPrimary,
-      }}
-    >
-      <div className="font-semibold mb-1">{title}</div>
-      {rows.map((r) => (
-        <div key={r.name} className="flex items-center gap-2 py-0.5">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: r.color }}
-            aria-hidden
-          />
-          <span style={{ color: chrome.textSecondary }} className="mr-2">
-            {r.name}
-          </span>
-          <span className="ml-auto tabular-nums font-medium">
-            {formatCurrency(r.value, currency)}
-          </span>
-        </div>
-      ))}
-      {total != null && (
-        <div
-          className="flex justify-between gap-4 mt-1 pt-1 tabular-nums font-semibold"
-          style={{ borderTop: `1px solid ${chrome.grid}` }}
-        >
-          <span>Total</span>
-          <span>{formatCurrency(total, currency)}</span>
-        </div>
-      )}
-    </div>
-  )
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`
+  return `${sign}$${Math.round(abs)}`
 }
 
 const axisProps = (chrome) => ({
@@ -69,128 +32,97 @@ const axisProps = (chrome) => ({
   tickLine: false,
 })
 
-export function WeeklyStackedBar({ data, keys, colorFor, chrome, currency }) {
+function TrendTooltip({ chrome, currency, active, payload }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  const good = chrome.good
+  const bad = chrome.bad
+  const netColor = row.net >= 0 ? good : bad
+  const fmt = (n) => `${n >= 0 ? '+' : '−'}${formatCurrency(Math.abs(n), currency)}`
+  return (
+    <div
+      className="rounded-lg border shadow-md text-xs px-3 py-2"
+      style={{ background: chrome.surface, borderColor: chrome.grid, color: chrome.textPrimary }}
+    >
+      <div className="font-semibold mb-1">Week of {row.label}</div>
+      {row.balance !== undefined && (
+        <div className="flex justify-between gap-6 py-0.5">
+          <span style={{ color: chrome.textSecondary }}>Balance</span>
+          <span className="tabular-nums font-medium">{formatCurrency(row.balance, currency)}</span>
+        </div>
+      )}
+      <div className="flex justify-between gap-6 py-0.5">
+        <span style={{ color: chrome.textSecondary }}>This week</span>
+        <span className="tabular-nums font-medium" style={{ color: netColor }}>{fmt(row.net)}</span>
+      </div>
+      <div className="flex justify-between gap-6 py-0.5">
+        <span style={{ color: chrome.textSecondary }}>In · Out</span>
+        <span className="tabular-nums">
+          {formatCurrency(row.income, currency)} · {formatCurrency(row.expense, currency)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export function BalanceArea({ data, chrome, currency, color }) {
+  const line = color || chrome.textPrimary
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={line} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={line} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
         <CartesianGrid vertical={false} stroke={chrome.grid} />
-        <XAxis dataKey="label" {...axisProps(chrome)} />
-        <YAxis tickFormatter={compactCurrency} width={48} {...axisProps(chrome)} />
+        <XAxis dataKey="label" {...axisProps(chrome)} minTickGap={24} />
+        <YAxis tickFormatter={compactCurrency} width={52} {...axisProps(chrome)} />
+        <ReferenceLine y={0} stroke={chrome.axis} strokeDasharray="3 3" />
         <Tooltip
-          cursor={{ fill: chrome.grid, opacity: 0.4 }}
-          content={({ active, payload, label }) => {
-            if (!active || !payload?.length) return null
-            const rows = payload
-              .filter((p) => p.value > 0)
-              .map((p) => ({ name: p.name, value: p.value, color: p.color }))
-              .reverse()
-            const total = rows.reduce((s, r) => s + r.value, 0)
-            return (
-              <TooltipBox chrome={chrome} title={label} rows={rows} total={total} currency={currency} />
-            )
-          }}
+          cursor={{ stroke: chrome.muted, strokeWidth: 1 }}
+          content={(p) => <TrendTooltip {...p} chrome={chrome} currency={currency} />}
         />
-        <Legend
-          wrapperStyle={{ fontSize: 12, color: chrome.textSecondary, paddingTop: 8 }}
-          iconType="circle"
-          iconSize={8}
+        <Area
+          type="monotone"
+          dataKey="balance"
+          stroke={line}
+          strokeWidth={2}
+          fill="url(#balanceFill)"
+          dot={false}
+          activeDot={{ r: 4, stroke: chrome.surface, strokeWidth: 2 }}
         />
-        {keys.map((k, i) => (
-          <Bar
-            key={k}
-            dataKey={k}
-            stackId="spend"
-            fill={colorFor(k)}
-            stroke={chrome.surface}
-            strokeWidth={2}
-            radius={i === keys.length - 1 ? [4, 4, 0, 0] : 0}
-            maxBarSize={72}
-          />
-        ))}
-      </BarChart>
+      </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-export function MonthlyIncomeExpense({ data, chrome, currency, incomeColor, expenseColor, monthLabelFn }) {
+export function WeeklyNetLine({ data, chrome, currency }) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={chrome.grid} />
-        <XAxis dataKey="monthKey" tickFormatter={monthLabelFn} {...axisProps(chrome)} />
-        <YAxis tickFormatter={compactCurrency} width={48} {...axisProps(chrome)} />
+        <XAxis dataKey="label" {...axisProps(chrome)} minTickGap={24} />
+        <YAxis tickFormatter={compactCurrency} width={52} {...axisProps(chrome)} />
+        <ReferenceLine y={0} stroke={chrome.axis} />
         <Tooltip
-          cursor={{ fill: chrome.grid, opacity: 0.4 }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null
-            const mk = payload[0]?.payload?.monthKey
-            const income = payload.find((p) => p.dataKey === 'income')?.value || 0
-            const expense = payload.find((p) => p.dataKey === 'expense')?.value || 0
-            return (
-              <TooltipBox
-                chrome={chrome}
-                title={monthLabelFn(mk)}
-                currency={currency}
-                rows={[
-                  { name: 'Income', value: income, color: incomeColor },
-                  { name: 'Spending', value: expense, color: expenseColor },
-                  { name: 'Net', value: income - expense, color: chrome.muted },
-                ]}
-              />
-            )
+          cursor={{ stroke: chrome.muted, strokeWidth: 1 }}
+          content={(p) => <TrendTooltip {...p} chrome={chrome} currency={currency} />}
+        />
+        <Line
+          type="monotone"
+          dataKey="net"
+          stroke={chrome.muted}
+          strokeWidth={2}
+          dot={(props) => {
+            const { cx, cy, payload, index } = props
+            const c = payload.net >= 0 ? chrome.good : chrome.bad
+            return <Dot key={index} cx={cx} cy={cy} r={3.5} fill={c} stroke={chrome.surface} strokeWidth={1.5} />
           }}
+          activeDot={{ r: 5, stroke: chrome.surface, strokeWidth: 2 }}
         />
-        <Legend
-          wrapperStyle={{ fontSize: 12, color: chrome.textSecondary, paddingTop: 8 }}
-          iconType="circle"
-          iconSize={8}
-        />
-        <Bar dataKey="income" name="Income" fill={incomeColor} radius={[4, 4, 0, 0]} maxBarSize={40} />
-        <Bar dataKey="expense" name="Spending" fill={expenseColor} radius={[4, 4, 0, 0]} maxBarSize={40} />
-      </BarChart>
-    </ResponsiveContainer>
-  )
-}
-
-export function CategoryRankedBar({ data, chrome, currency, color }) {
-  const height = Math.max(160, data.length * 38 + 16)
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, left: 8, bottom: 4 }}>
-        <CartesianGrid horizontal={false} stroke={chrome.grid} />
-        <XAxis type="number" tickFormatter={compactCurrency} {...axisProps(chrome)} />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={112}
-          tick={{ fill: chrome.textSecondary, fontSize: 12 }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip
-          cursor={{ fill: chrome.grid, opacity: 0.4 }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null
-            const p = payload[0]
-            return (
-              <TooltipBox
-                chrome={chrome}
-                title={p.payload.name}
-                currency={currency}
-                rows={[{ name: 'Spent', value: p.value, color }]}
-              />
-            )
-          }}
-        />
-        <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} maxBarSize={26}>
-          <LabelList
-            dataKey="value"
-            position="right"
-            formatter={(v) => formatCurrency(v, currency)}
-            style={{ fill: chrome.textSecondary, fontSize: 11 }}
-          />
-        </Bar>
-      </BarChart>
+      </LineChart>
     </ResponsiveContainer>
   )
 }

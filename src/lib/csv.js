@@ -3,7 +3,6 @@
 // user confirm/override the mapping before importing.
 
 import { matchDateToken } from './date.js'
-import { guessCategory } from './categorize.js'
 
 // RFC-4180-ish CSV parser: handles quoted fields, escaped quotes, and commas /
 // newlines inside quotes. Returns an array of rows (arrays of strings).
@@ -55,7 +54,6 @@ const DESC_HEADERS = /^(description|payee|name|memo|details|transaction|merchant
 const AMOUNT_HEADERS = /^(amount|amt|value|transaction amount)$/i
 const DEBIT_HEADERS = /^(debit|withdrawal|withdrawals|money out|paid out)$/i
 const CREDIT_HEADERS = /^(credit|deposit|deposits|money in|paid in)$/i
-const CATEGORY_HEADERS = /^(category|type)$/i
 
 function looksLikeHeader(row) {
   // A header row rarely contains a parseable date or a currency amount.
@@ -73,7 +71,6 @@ export function detectColumns(headerRow) {
     amount: find(AMOUNT_HEADERS),
     debit: find(DEBIT_HEADERS),
     credit: find(CREDIT_HEADERS),
-    category: find(CATEGORY_HEADERS),
   }
 }
 
@@ -91,10 +88,10 @@ let idc = 0
 const nextId = () => `csv_${Date.now().toString(36)}_${idc++}`
 
 // Convert parsed rows into review-ready transactions using a column mapping.
-// mapping: { date, description, amount, debit, credit, category } (indices; -1 = none)
-// opts: { hasHeader, expenseSign: 'negative'|'positive', categories }
+// mapping: { date, description, amount, debit, credit } (indices; -1 = none)
+// opts: { hasHeader, expenseSign: 'negative'|'positive' }
 export function csvToTransactions(rows, mapping, opts = {}) {
-  const { hasHeader = true, expenseSign = 'negative', categories } = opts
+  const { hasHeader = true, expenseSign = 'negative' } = opts
   const body = hasHeader ? rows.slice(1) : rows
   const out = []
 
@@ -130,19 +127,12 @@ export function csvToTransactions(rows, mapping, opts = {}) {
       continue
     }
 
-    const providedCat = mapping.category >= 0 ? (r[mapping.category] || '').trim() : ''
-    const category =
-      providedCat && categories?.includes(providedCat)
-        ? providedCat
-        : guessCategory(description, categories)
-
     out.push({
       id: nextId(),
       date: dm?.iso || '',
       description,
       amount: value,
       type,
-      category: type === 'income' && category === 'Other' ? 'Income' : category,
       include: true,
     })
   }

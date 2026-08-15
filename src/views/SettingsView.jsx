@@ -6,39 +6,12 @@ import { formatCurrency } from '../lib/aggregate.js'
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR', 'MXN', 'BRL', 'CHF']
 
 export default function SettingsView({ state, patch, replaceState, clearAll }) {
-  const { settings, categories, transactions, weeklyBudgets } = state
-  const [newCat, setNewCat] = useState('')
+  const { settings, transactions } = state
   const [importMsg, setImportMsg] = useState('')
   const pendingImport = useRef(null)
   const fileRef = useRef(null)
 
   const setSetting = (k, v) => patch((s) => ({ settings: { ...s.settings, [k]: v } }))
-
-  const addCategory = () => {
-    const name = newCat.trim()
-    if (!name || categories.includes(name)) return
-    patch((s) => ({ categories: [...s.categories, name] }))
-    setNewCat('')
-  }
-
-  const removeCategory = (name) => {
-    const inUse = transactions.some((t) => t.category === name)
-    if (inUse && !confirm(`"${name}" is used by some transactions. Remove it anyway? Those transactions keep the label but it won't be selectable.`)) return
-    patch((s) => {
-      const { [name]: _drop, ...restBudgets } = s.weeklyBudgets
-      return { categories: s.categories.filter((c) => c !== name), weeklyBudgets: restBudgets }
-    })
-  }
-
-  const setBudget = (cat, value) => {
-    const num = value === '' ? undefined : Number(value)
-    patch((s) => {
-      const next = { ...s.weeklyBudgets }
-      if (num == null || Number.isNaN(num) || num <= 0) delete next[cat]
-      else next[cat] = num
-      return { weeklyBudgets: next }
-    })
-  }
 
   const onFile = (e) => {
     const file = e.target.files?.[0]
@@ -72,8 +45,6 @@ export default function SettingsView({ state, patch, replaceState, clearAll }) {
     setImportMsg(`Merged ${incoming.length} transactions into your data.`)
   }
 
-  const weeklyBudgetTotal = Object.values(weeklyBudgets || {}).reduce((s, n) => s + n, 0)
-
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold">Settings</h1>
@@ -92,46 +63,21 @@ export default function SettingsView({ state, patch, replaceState, clearAll }) {
         </div>
       </Card>
 
-      <Card title="Categories" subtitle="Used for auto-categorizing imports and grouping charts.">
-        <div className="flex flex-wrap gap-2 mb-4">
-          {categories.map((c) => (
-            <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-black/5 dark:bg-white/10 px-2.5 py-1 text-sm">
-              {c}
-              <button onClick={() => removeCategory(c)} className="text-[#898781] hover:text-[#d03b3b]" aria-label={`Remove ${c}`}>✕</button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <TextInput
-            value={newCat}
-            onChange={(e) => setNewCat(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
-            placeholder="New category"
-            className="w-48"
-          />
-          <Button variant="subtle" onClick={addCategory}>Add</Button>
-        </div>
-      </Card>
-
       <Card
-        title="Weekly budget targets"
-        subtitle={weeklyBudgetTotal > 0 ? `Total weekly target: ${formatCurrency(weeklyBudgetTotal, settings.currency)}` : 'Optional — set a weekly spending target per category.'}
+        title="Starting balance"
+        subtitle="Optional. The balance trend starts from this amount, so the line reflects your real money — not just the change since your first import."
       >
-        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-          {categories.filter((c) => c !== 'Income' && c !== 'Transfer').map((c) => (
-            <div key={c} className="flex items-center justify-between gap-3">
-              <span className="text-sm">{c}</span>
-              <TextInput
-                type="number"
-                min="0"
-                step="1"
-                placeholder="—"
-                value={weeklyBudgets?.[c] ?? ''}
-                onChange={(e) => setBudget(c, e.target.value)}
-                className="w-28 text-right tabular-nums"
-              />
-            </div>
-          ))}
+        <div className="flex items-center gap-3">
+          <TextInput
+            type="number"
+            step="0.01"
+            value={settings.startingBalance ?? 0}
+            onChange={(e) => setSetting('startingBalance', Number(e.target.value) || 0)}
+            className="w-40 text-right tabular-nums"
+          />
+          <span className="text-sm text-[#898781]">
+            currently {formatCurrency(settings.startingBalance || 0, settings.currency)}
+          </span>
         </div>
       </Card>
 

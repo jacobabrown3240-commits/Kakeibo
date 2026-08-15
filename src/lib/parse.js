@@ -3,7 +3,6 @@
 // relies on the review table for the human to correct mistakes before saving.
 
 import { matchDateToken } from './date.js'
-import { guessCategory } from './categorize.js'
 
 // A monetary amount: requires cents (.dd) so we don't grab dates or quantities.
 // Captures optional $ , thousands separators, and negative markers ( ) or -.
@@ -29,7 +28,7 @@ function parseAmount(token) {
 const CREDIT_RX = /(payment\s*(thank\s*you|received|-\s*thank)|refund|deposit|credit\b|reversal|cashback|direct\s*dep|payroll|salary|interest\s*paid|dividend)/i
 
 export function parseTransactions(rawText, opts = {}) {
-  const { defaultYear = new Date().getFullYear(), categories } = opts
+  const { defaultYear = new Date().getFullYear() } = opts
   const lines = String(rawText || '')
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, ' ').trim())
@@ -61,16 +60,13 @@ export function parseTransactions(rawText, opts = {}) {
     if (!desc) desc = '(no description)'
 
     const isCredit = parsed.negative || CREDIT_RX.test(line)
-    const type = isCredit ? 'income' : 'expense'
-    const category = guessCategory(desc, categories)
 
     out.push({
       id: nextId(),
       date: date || '',
       description: desc,
       amount: parsed.value,
-      type: type === 'income' && category !== 'Income' && category !== 'Transfer' ? 'income' : type,
-      category: type === 'income' && category === 'Other' ? 'Income' : category,
+      type: isCredit ? 'income' : 'expense',
       include: true, // whether this row is selected for import
     })
   }
@@ -78,14 +74,13 @@ export function parseTransactions(rawText, opts = {}) {
   return out
 }
 
-export function blankRow(defaultCategory = 'Other') {
+export function blankRow() {
   return {
     id: nextId(),
     date: '',
     description: '',
     amount: 0,
     type: 'expense',
-    category: defaultCategory,
     include: true,
   }
 }

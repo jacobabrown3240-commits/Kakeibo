@@ -1,18 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Card, Button, Select, TextInput, EmptyState, Badge } from '../components/ui.jsx'
+import { Card, Button, Select, TextInput, EmptyState } from '../components/ui.jsx'
 import { formatCurrency, monthsPresent } from '../lib/aggregate.js'
 import { monthLabel, shortDate, monthKey, isValidISO } from '../lib/date.js'
-import { slotColor, otherColor } from '../lib/categorize.js'
 
 export default function TransactionsView({
   state,
-  dark,
   updateTransaction,
   deleteTransaction,
   deleteMany,
   goImport,
 }) {
-  const { transactions, categories, settings } = state
+  const { transactions, settings } = state
   const months = useMemo(() => monthsPresent(transactions), [transactions])
   const [monthFilter, setMonthFilter] = useState('all')
   const [query, setQuery] = useState('')
@@ -20,21 +18,16 @@ export default function TransactionsView({
   const [editing, setEditing] = useState(null)
   const [selected, setSelected] = useState(new Set())
 
-  const colorFor = useMemo(() => {
-    const map = new Map(categories.map((c, i) => [c, slotColor(i, dark)]))
-    return (c) => map.get(c) || otherColor(dark)
-  }, [categories, dark])
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return transactions
       .filter((t) => (monthFilter === 'all' ? true : monthKey(t.date) === monthFilter))
       .filter((t) => (typeFilter === 'all' ? true : t.type === typeFilter))
-      .filter((t) => (q ? t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q) : true))
+      .filter((t) => (q ? t.description.toLowerCase().includes(q) : true))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
   }, [transactions, monthFilter, typeFilter, query])
 
-  const shownTotal = filtered.reduce((s, t) => s + (t.type === 'expense' ? t.amount : -t.amount), 0)
+  const shownNet = filtered.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0)
 
   const toggleSelect = (id) =>
     setSelected((prev) => {
@@ -65,7 +58,7 @@ export default function TransactionsView({
     return (
       <Card>
         <EmptyState icon="🧾" title="No transactions yet" action={<Button onClick={goImport}>Import your first statement</Button>}>
-          Once you import transactions they’ll appear here, where you can edit categories, fix amounts, or delete entries.
+          Once you import transactions they’ll appear here, where you can fix amounts, flip income/expense, or delete entries.
         </EmptyState>
       </Card>
     )
@@ -96,8 +89,8 @@ export default function TransactionsView({
         <div className="flex items-center justify-between gap-3 mb-2 text-sm">
           <div className="text-[#52514e] dark:text-[#c3c2b7]">
             {filtered.length} shown · net{' '}
-            <span className={shownTotal <= 0 ? 'text-[#006300] dark:text-[#0ca30c]' : 'text-[#0b0b0b] dark:text-white'}>
-              {formatCurrency(-shownTotal, cur)}
+            <span className={shownNet >= 0 ? 'text-[#006300] dark:text-[#0ca30c]' : 'text-[#d03b3b] dark:text-[#e66767]'}>
+              {shownNet >= 0 ? '+' : '−'}{formatCurrency(Math.abs(shownNet), cur)}
             </span>
           </div>
           {selected.size > 0 && (
@@ -106,7 +99,7 @@ export default function TransactionsView({
         </div>
 
         <div className="overflow-x-auto thin-scroll -mx-2">
-          <table className="w-full text-sm border-collapse min-w-[640px]">
+          <table className="w-full text-sm border-collapse min-w-[520px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-[#898781]">
                 <th className="px-2 py-2 w-8">
@@ -114,7 +107,7 @@ export default function TransactionsView({
                 </th>
                 <th className="px-2 py-2">Date</th>
                 <th className="px-2 py-2">Description</th>
-                <th className="px-2 py-2">Category</th>
+                <th className="px-2 py-2">Type</th>
                 <th className="px-2 py-2 text-right">Amount</th>
                 <th className="px-2 py-2 w-20"></th>
               </tr>
@@ -128,12 +121,16 @@ export default function TransactionsView({
                       <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} aria-label="Select row" />
                     </td>
                     {isEditing ? (
-                      <EditRow t={t} categories={categories} onSave={(patch) => { updateTransaction(t.id, patch); setEditing(null) }} onCancel={() => setEditing(null)} />
+                      <EditRow t={t} onSave={(patch) => { updateTransaction(t.id, patch); setEditing(null) }} onCancel={() => setEditing(null)} />
                     ) : (
                       <>
                         <td className="px-2 py-1.5 tabular-nums whitespace-nowrap text-[#52514e] dark:text-[#c3c2b7]">{shortDate(t.date)}</td>
                         <td className="px-2 py-1.5">{t.description}</td>
-                        <td className="px-2 py-1.5"><Badge color={colorFor(t.category)}>{t.category}</Badge></td>
+                        <td className="px-2 py-1.5">
+                          <span className={'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ' + (t.type === 'income' ? 'bg-[#0ca30c]/15 text-[#006300] dark:text-[#0ca30c]' : 'bg-[#898781]/15 text-[#52514e] dark:text-[#c3c2b7]')}>
+                            {t.type === 'income' ? 'Income' : 'Expense'}
+                          </span>
+                        </td>
                         <td className={'px-2 py-1.5 text-right tabular-nums font-medium ' + (t.type === 'income' ? 'text-[#006300] dark:text-[#0ca30c]' : '')}>
                           {t.type === 'income' ? '+' : ''}{formatCurrency(t.amount, cur)}
                         </td>
@@ -157,10 +154,9 @@ export default function TransactionsView({
   )
 }
 
-function EditRow({ t, categories, onSave, onCancel }) {
+function EditRow({ t, onSave, onCancel }) {
   const [date, setDate] = useState(t.date)
   const [description, setDescription] = useState(t.description)
-  const [category, setCategory] = useState(categories.includes(t.category) ? t.category : 'Other')
   const [type, setType] = useState(t.type)
   const [amount, setAmount] = useState(t.amount)
 
@@ -169,17 +165,14 @@ function EditRow({ t, categories, onSave, onCancel }) {
   return (
     <>
       <td className="px-2 py-1.5"><TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[9.5rem]" /></td>
-      <td className="px-2 py-1.5"><TextInput value={description} onChange={(e) => setDescription(e.target.value)} className="w-full min-w-[8rem]" /></td>
+      <td className="px-2 py-1.5"><TextInput value={description} onChange={(e) => setDescription(e.target.value)} className="w-full min-w-[10rem]" /></td>
       <td className="px-2 py-1.5">
-        <div className="flex gap-1">
-          <Select value={category} onChange={setCategory} options={categories} />
-          <Select value={type} onChange={setType} options={[{ value: 'expense', label: 'Exp' }, { value: 'income', label: 'Inc' }]} />
-        </div>
+        <Select value={type} onChange={setType} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }]} />
       </td>
       <td className="px-2 py-1.5 text-right"><TextInput type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-24 text-right tabular-nums" /></td>
       <td className="px-2 py-1.5">
         <div className="flex justify-end gap-1">
-          <button disabled={!valid} onClick={() => onSave({ date, description, category, type, amount: Number(amount) })} className="text-[#006300] disabled:opacity-30 px-1" aria-label="Save">✓</button>
+          <button disabled={!valid} onClick={() => onSave({ date, description, type, amount: Number(amount) })} className="text-[#006300] disabled:opacity-30 px-1" aria-label="Save">✓</button>
           <button onClick={onCancel} className="text-[#898781] px-1" aria-label="Cancel">↩</button>
         </div>
       </td>

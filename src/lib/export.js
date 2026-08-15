@@ -31,10 +31,10 @@ function csvField(v) {
 }
 
 export function exportCSV(transactions) {
-  const header = ['date', 'description', 'category', 'type', 'amount']
+  const header = ['date', 'description', 'type', 'amount']
   const rows = [...transactions]
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-    .map((t) => [t.date, t.description, t.category, t.type, t.amount.toFixed(2)].map(csvField).join(','))
+    .map((t) => [t.date, t.description, t.type, t.amount.toFixed(2)].map(csvField).join(','))
   download(`kakeibo-transactions-${stamp()}.csv`, [header.join(','), ...rows].join('\n'), 'text/csv')
 }
 
@@ -51,18 +51,11 @@ export function parseImportedJSON(text) {
       description: String(t.description || '').slice(0, 200),
       amount: Math.abs(Number(t.amount)),
       type: t.type === 'income' ? 'income' : 'expense',
-      category: String(t.category || 'Other'),
     }))
   return {
     ...DEFAULT_STATE,
     ...parsed,
     settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
-    categories:
-      Array.isArray(parsed.categories) && parsed.categories.length
-        ? parsed.categories
-        : DEFAULT_STATE.categories,
-    weeklyBudgets:
-      parsed.weeklyBudgets && typeof parsed.weeklyBudgets === 'object' ? parsed.weeklyBudgets : {},
     transactions: clean,
   }
 }
