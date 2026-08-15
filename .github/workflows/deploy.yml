@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-      # Also deploy from the development branch so the app can go live before
-      # it's merged to main. Remove this line once merged.
-      - claude/weekly-budgeting-app-2xhdou
   workflow_dispatch:
 
 # Permissions the GitHub Pages deployment needs.
