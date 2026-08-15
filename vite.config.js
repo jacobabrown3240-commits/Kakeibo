@@ -12,6 +12,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'icon-source.svg'],
+      // Make updates take effect on the very next load instead of lingering
+      // behind an old cached service worker.
+      selfDestroying: false,
       manifest: {
         name: 'Kakeibo — Weekly Budgeting',
         short_name: 'Kakeibo',
@@ -30,6 +33,11 @@ export default defineConfig({
       workbox: {
         // Precache the app shell so it opens offline once installed.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // Activate a new service worker immediately and take control of open
+        // pages, and drop stale precaches — so a deploy shows up on next load.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // The OCR engine + language data load from a CDN on first use; cache
         // them at runtime so screenshot import keeps working offline afterward.
         runtimeCaching: [
