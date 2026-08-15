@@ -13,7 +13,10 @@ export const DEFAULT_STATE = {
   settings: {
     currency: 'USD',
     weekStartsOn: 1, // Monday
-    startingBalance: 0, // optional opening balance the trend builds on
+    // Your balance as of now. The trend is anchored so its latest point equals
+    // this and earlier weeks are computed backward from it. null = not set
+    // (trend then just runs cumulatively from 0).
+    currentBalance: null,
     theme: 'system', // 'light' | 'dark' | 'system'
   },
 }

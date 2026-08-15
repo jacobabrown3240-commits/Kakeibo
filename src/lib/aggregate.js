@@ -37,10 +37,12 @@ export function totals(txns) {
 }
 
 // One row per week from the first transaction's week through the last, with
-// gaps filled so the line is continuous. `balance` is the running total
-// (startingBalance + cumulative net) — this is the "is my money going up or
-// down" series.
-export function weeklySeries(txns, { weekStartsOn = 1, startingBalance = 0 } = {}) {
+// gaps filled so the line is continuous. `balance` is the running total.
+//
+// If `anchorEndBalance` is given, it's treated as your balance *now*: the series
+// is shifted so the most recent week ends exactly there and earlier weeks are
+// computed backward from it. Otherwise the running total simply starts at 0.
+export function weeklySeries(txns, { weekStartsOn = 1, anchorEndBalance = null } = {}) {
   if (!txns.length) return []
 
   const byWeek = new Map()
@@ -58,7 +60,7 @@ export function weeklySeries(txns, { weekStartsOn = 1, startingBalance = 0 } = {
   const cur = fromISO(keys[0])
   const end = fromISO(keys[keys.length - 1])
   const out = []
-  let running = startingBalance
+  let running = 0
 
   while (cur <= end) {
     const ws = toISO(cur.getFullYear(), cur.getMonth() + 1, cur.getDate())
@@ -74,6 +76,12 @@ export function weeklySeries(txns, { weekStartsOn = 1, startingBalance = 0 } = {
       balance: running,
     })
     cur.setDate(cur.getDate() + 7)
+  }
+
+  // Anchor the latest week to the real current balance and shift the rest.
+  if (anchorEndBalance != null && out.length) {
+    const offset = anchorEndBalance - out[out.length - 1].balance
+    for (const row of out) row.balance += offset
   }
   return out
 }

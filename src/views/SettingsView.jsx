@@ -64,19 +64,25 @@ export default function SettingsView({ state, patch, replaceState, clearAll }) {
       </Card>
 
       <Card
-        title="Starting balance"
-        subtitle="Optional. The balance trend starts from this amount, so the line reflects your real money — not just the change since your first import."
+        title="Current balance"
+        subtitle="Optional. Enter what your account shows right now. The trend is anchored so its latest point equals this and earlier weeks are worked out backward — so it lines up with your bank no matter when your imported transactions start. Leave blank to just track the change from zero."
       >
         <div className="flex items-center gap-3">
           <TextInput
             type="number"
             step="0.01"
-            value={settings.startingBalance ?? 0}
-            onChange={(e) => setSetting('startingBalance', Number(e.target.value) || 0)}
-            className="w-40 text-right tabular-nums"
+            placeholder="e.g. 1240.50"
+            value={settings.currentBalance ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.trim()
+              setSetting('currentBalance', v === '' ? null : Number(v))
+            }}
+            className="w-44 text-right tabular-nums"
           />
           <span className="text-sm text-[#898781]">
-            currently {formatCurrency(settings.startingBalance || 0, settings.currency)}
+            {settings.currentBalance == null
+              ? 'not set'
+              : `as of today: ${formatCurrency(settings.currentBalance, settings.currency)}`}
           </span>
         </div>
       </Card>

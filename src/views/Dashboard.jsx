@@ -19,9 +19,9 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
     () =>
       weeklySeries(transactions, {
         weekStartsOn: settings.weekStartsOn,
-        startingBalance: settings.startingBalance || 0,
+        anchorEndBalance: settings.currentBalance ?? null,
       }),
-    [transactions, settings.weekStartsOn, settings.startingBalance],
+    [transactions, settings.weekStartsOn, settings.currentBalance],
   )
 
   const series = useMemo(
@@ -52,9 +52,10 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
   const rangeTxns = rangeStart ? transactions.filter((t) => t.date >= rangeStart) : transactions
   const t = totals(rangeTxns)
 
+  const anchored = settings.currentBalance != null
   const currentBalance = fullSeries.length
     ? fullSeries[fullSeries.length - 1].balance
-    : settings.startingBalance || 0
+    : settings.currentBalance || 0
   const rangeChange = currentBalanceInRange(series)
   const trendingUp = rangeChange >= 0
 
@@ -70,9 +71,10 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile
-          label="Current balance"
+          label={anchored ? 'Current balance' : 'Net so far'}
           value={formatCurrency(currentBalance, cur)}
           tone={currentBalance >= 0 ? 'good' : 'bad'}
+          hint={anchored ? undefined : 'Set your balance in Settings'}
         />
         <StatTile label="Income (range)" value={formatCurrency(t.income, cur)} tone="good" />
         <StatTile label="Expenses (range)" value={formatCurrency(t.expense, cur)} />
