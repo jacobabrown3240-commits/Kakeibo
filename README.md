@@ -9,9 +9,16 @@ Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 
 ## Features
 
-- **📷 Screenshot import (OCR).** Drop, browse, or paste (⌘/Ctrl+V) statement
-  screenshots. Text is extracted locally with [Tesseract.js](https://tesseract.js.org/)
-  and parsed into transactions — no data leaves your browser.
+- **📥 Three import methods**, all processed on-device — nothing is uploaded:
+  - **CSV** — import your bank's transactions export. Columns are auto-detected
+    with an editable mapping (date / description / amount, or separate
+    debit/credit). Accurate and private.
+  - **OFX / QFX** — import a bank "download transactions" file. Fully
+    structured, so it imports with no guesswork.
+  - **📷 Screenshot (OCR)** — drop, browse, or paste (⌘/Ctrl+V) a statement
+    image. It's preprocessed (upscale, grayscale, Otsu binarize, dark-mode
+    auto-invert) and read locally with a tuned [Tesseract.js](https://tesseract.js.org/)
+    worker. Best-effort; CSV/OFX are more reliable for messy statements.
 - **✅ Human-in-the-loop review.** Every detected row is auto-categorized and shown
   in an editable table. Fix dates, amounts, categories, or income/expense before
   saving. A **paste-text** fallback works if OCR struggles with a screenshot.
@@ -51,12 +58,19 @@ so it works from a subpath too.
 
 ## How import works
 
-1. Add one or more statement screenshots (or switch to **Paste text instead**).
-2. Pick the **statement year** (used when a statement omits the year).
-3. Press **Read screenshots** — OCR runs with a progress bar.
-4. Review the detected rows: correct anything, uncheck rows to skip, add rows
-   manually if needed.
-5. **Add transactions** — they're saved locally and appear on the dashboard.
+Pick a source on the **Import** tab. All three feed the same editable review
+table, so you always confirm before anything is saved:
+
+- **CSV:** choose the file → confirm the auto-detected column mapping (and, for a
+  single signed amount column, whether spending shows as negative or positive) →
+  **Parse**.
+- **OFX / QFX:** choose the file → transactions are parsed directly.
+- **Screenshot:** add image(s) (or **Paste text instead**), pick the **statement
+  year** for statements that omit it, then **Read screenshots**.
+
+Then review the detected rows — correct anything, uncheck rows to skip, add rows
+manually — and **Add transactions**. They're saved locally and appear on the
+dashboard.
 
 ## Your data & privacy
 
