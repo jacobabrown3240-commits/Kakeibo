@@ -92,3 +92,26 @@ export function lastNWeeks(series, n) {
   if (!n || n >= series.length) return series
   return series.slice(-n)
 }
+
+// Average income per week across the series — the fallback "income line" when
+// the user hasn't set an expected weekly income. Averaging over every week
+// (including zero-income ones) smooths lumpy/biweekly paychecks into a weekly
+// equivalent.
+export function averageWeeklyIncome(series) {
+  if (!series.length) return 0
+  const total = series.reduce((s, w) => s + w.income, 0)
+  return total / series.length
+}
+
+// How this week's spending sits against the income line.
+//   level: 'good'  spending comfortably under the line (saving)
+//          'warn'  getting close to the line
+//          'over'  spending has crossed the line
+export function spendStatus(spent, line) {
+  const ratio = line > 0 ? spent / line : spent > 0 ? Infinity : 0
+  const remaining = line - spent // positive = saving room left
+  let level = 'good'
+  if (ratio > 1) level = 'over'
+  else if (ratio >= 0.8) level = 'warn'
+  return { ratio, remaining, over: spent - line, level, spent, line }
+}

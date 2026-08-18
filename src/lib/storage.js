@@ -17,6 +17,9 @@ export const DEFAULT_STATE = {
     // this and earlier weeks are computed backward from it. null = not set
     // (trend then just runs cumulatively from 0).
     currentBalance: null,
+    // The income line each week's spending is measured against. null = not set,
+    // in which case the dashboard falls back to your average weekly income.
+    expectedWeeklyIncome: null,
     theme: 'system', // 'light' | 'dark' | 'system'
   },
 }

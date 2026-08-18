@@ -27,11 +27,16 @@ Named after the Japanese *kakeibo* (家計簿) method of mindful money tracking.
 - **✅ Human-in-the-loop review.** Every detected row is shown in an editable
   table. Fix dates, amounts, or income/expense before saving. A **paste-text**
   fallback works if OCR struggles with a screenshot.
-- **📈 Balance trend.** An area line of your running balance week by week — the
-  headline "is my money going up or down?" view. Set an optional starting balance
-  so it reflects your real money.
-- **📊 Weekly cash flow.** A line of each week's net (money in minus money out),
-  with a marker per week: above the zero line is a surplus, below is a shortfall.
+- **🎯 Spending vs. income meter.** The headline view: a big meter whose full
+  width is your weekly **income line** and whose fill is your **spending** —
+  green while you're comfortably under (saving), amber as you approach, red once
+  you cross it. Handles inconsistent income by measuring against an expected
+  weekly income you set (or your average if you don't).
+- **📊 Recent weeks streak.** A stack of slim per-week meters so you can scan the
+  pattern of under/over weeks at a glance, each labeled with what you saved (＋)
+  or overspent (−).
+- **📈 Balance over time.** A running-balance area line, anchored to your real
+  current balance so it lines up with your bank.
 - **🧾 Transaction management.** Search, filter by month/type, inline-edit, and
   bulk-delete. Income vs. expense only — no categories.
 - **🔒 Local-first + backups.** All data lives in your browser (`localStorage`).

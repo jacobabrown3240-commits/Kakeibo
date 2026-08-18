@@ -64,6 +64,31 @@ export default function SettingsView({ state, patch, replaceState, clearAll }) {
       </Card>
 
       <Card
+        title="Expected weekly income"
+        subtitle="Optional. The steady income line your weekly spending is measured against — pick a realistic target you want to stay under (e.g. a typical or lower-hours week). Leave blank and the dashboard uses your average weekly income instead."
+      >
+        <div className="flex items-center gap-3">
+          <TextInput
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="e.g. 600"
+            value={settings.expectedWeeklyIncome ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.trim()
+              setSetting('expectedWeeklyIncome', v === '' ? null : Number(v))
+            }}
+            className="w-44 text-right tabular-nums"
+          />
+          <span className="text-sm text-[#898781]">
+            {settings.expectedWeeklyIncome == null
+              ? 'using your average'
+              : `${formatCurrency(settings.expectedWeeklyIncome, settings.currency)} / week`}
+          </span>
+        </div>
+      </Card>
+
+      <Card
         title="Current balance"
         subtitle="Optional. Enter what your account shows right now. The trend is anchored so its latest point equals this and earlier weeks are worked out backward — so it lines up with your bank no matter when your imported transactions start. Leave blank to just track the change from zero."
       >

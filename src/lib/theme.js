@@ -14,6 +14,7 @@ export const CHROME = {
     grid: '#e1e0d9',
     axis: '#c3c2b7',
     good: '#006300',
+    warn: '#b26a00',
     bad: '#d03b3b',
   },
   dark: {
@@ -25,6 +26,7 @@ export const CHROME = {
     grid: '#2c2c2a',
     axis: '#383835',
     good: '#0ca30c',
+    warn: '#eda100',
     bad: '#e66767',
   },
 }

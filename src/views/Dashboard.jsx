@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Card, StatTile, Select, Button, EmptyState } from '../components/ui.jsx'
-import { BalanceArea, WeeklyNetLine } from '../components/charts.jsx'
+import { BalanceArea } from '../components/charts.jsx'
+import { HeroMeter, WeekMeterRow } from '../components/meters.jsx'
 import { slotColor } from '../lib/categorize.js'
-import { formatCurrency, totals, weeklySeries, lastNWeeks } from '../lib/aggregate.js'
+import {
+  formatCurrency,
+  totals,
+  weeklySeries,
+  lastNWeeks,
+  averageWeeklyIncome,
+} from '../lib/aggregate.js'
+import { weekStartISO, weekRangeLabel, todayISO } from '../lib/date.js'
 
 const RANGES = [
   { value: '8', label: 'Last 8 weeks' },
@@ -13,7 +21,7 @@ const RANGES = [
 
 export default function Dashboard({ state, dark, chrome, goImport }) {
   const { transactions, settings } = state
-  const [range, setRange] = useState('12')
+  const [range, setRange] = useState('8')
 
   const fullSeries = useMemo(
     () =>
@@ -24,40 +32,47 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
     [transactions, settings.weekStartsOn, settings.currentBalance],
   )
 
-  const series = useMemo(
-    () => (range === 'all' ? fullSeries : lastNWeeks(fullSeries, Number(range))),
-    [fullSeries, range],
-  )
-
   const cur = settings.currency
-  const accent = slotColor(0, dark) // blue
+  const accent = slotColor(0, dark)
 
   if (transactions.length === 0) {
     return (
       <Card>
         <EmptyState
-          icon="📈"
+          icon="🎯"
           title="No transactions yet"
           action={<Button onClick={goImport}>Import transactions</Button>}
         >
-          Import your income and expenses (bank CSV/OFX, or a screenshot) and Kakeibo will show
-          whether your money is trending up or down, week by week.
+          Import your income and expenses and Kakeibo will show, each week, how close your spending
+          is to your income — so you can see yourself saving.
         </EmptyState>
       </Card>
     )
   }
 
-  // Totals across the transactions that fall in the displayed weeks.
-  const rangeStart = series.length ? series[0].weekStart : null
+  // The income line each week is measured against.
+  const avgIncome = averageWeeklyIncome(fullSeries)
+  const usingExpected = settings.expectedWeeklyIncome != null && settings.expectedWeeklyIncome > 0
+  const incomeLine = usingExpected ? settings.expectedWeeklyIncome : avgIncome
+  const incomeNote = usingExpected
+    ? `Income line: your expected ${formatCurrency(incomeLine, cur)}/week (change in Settings)`
+    : `Income line: your average ${formatCurrency(incomeLine, cur)}/week — set a fixed target in Settings`
+
+  // Hero = the most recent week with activity (labeled "This week" if it's the
+  // current calendar week, otherwise "Latest week").
+  const heroWeek = fullSeries[fullSeries.length - 1]
+  const isThisWeek = heroWeek.weekStart === weekStartISO(todayISO(), settings.weekStartsOn)
+
+  const recent = useMemo(() => {
+    const sliced = range === 'all' ? fullSeries : lastNWeeks(fullSeries, Number(range))
+    return [...sliced].reverse() // most recent first
+  }, [fullSeries, range])
+
+  const rangeStart = recent.length ? recent[recent.length - 1].weekStart : null
   const rangeTxns = rangeStart ? transactions.filter((t) => t.date >= rangeStart) : transactions
   const t = totals(rangeTxns)
-
+  const currentBalance = fullSeries[fullSeries.length - 1].balance
   const anchored = settings.currentBalance != null
-  const currentBalance = fullSeries.length
-    ? fullSeries[fullSeries.length - 1].balance
-    : settings.currentBalance || 0
-  const rangeChange = currentBalanceInRange(series)
-  const trendingUp = rangeChange >= 0
 
   return (
     <div className="space-y-6">
@@ -69,7 +84,35 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Hero: this week's spending vs income line */}
+      <HeroMeter
+        spent={heroWeek.expense}
+        line={incomeLine}
+        currency={cur}
+        chrome={chrome}
+        rangeLabel={isThisWeek ? weekRangeLabel(heroWeek.weekStart) : `latest · ${weekRangeLabel(heroWeek.weekStart)}`}
+        incomeNote={incomeNote}
+      />
+
+      {/* Recent weeks: streak of under/over */}
+      <Card title="Recent weeks" subtitle="How close each week's spending got to your income line — the number is what you saved (＋) or overspent (−).">
+        <div className="divide-y divide-black/5 dark:divide-white/5">
+          {recent.map((w) => (
+            <WeekMeterRow
+              key={w.weekStart}
+              label={weekRangeLabel(w.weekStart)}
+              spent={w.expense}
+              income={w.income}
+              line={incomeLine}
+              currency={cur}
+              chrome={chrome}
+            />
+          ))}
+        </div>
+      </Card>
+
+      {/* Small summary + overall trajectory */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <StatTile
           label={anchored ? 'Current balance' : 'Net so far'}
           value={formatCurrency(currentBalance, cur)}
@@ -77,45 +120,17 @@ export default function Dashboard({ state, dark, chrome, goImport }) {
           hint={anchored ? undefined : 'Set your balance in Settings'}
         />
         <StatTile label="Income (range)" value={formatCurrency(t.income, cur)} tone="good" />
-        <StatTile label="Expenses (range)" value={formatCurrency(t.expense, cur)} />
         <StatTile
-          label="Net (range)"
+          label="Saved (range)"
           value={`${t.net >= 0 ? '+' : '−'}${formatCurrency(Math.abs(t.net), cur)}`}
           tone={t.net >= 0 ? 'good' : 'bad'}
-          hint={t.net >= 0 ? 'Money saved' : 'Money spent down'}
+          hint={t.net >= 0 ? 'income minus spending' : 'spent more than earned'}
         />
       </div>
 
-      <Card
-        title="Balance trend"
-        subtitle={
-          series.length > 1
-            ? `Your money is trending ${trendingUp ? 'up ▲' : 'down ▼'} over this range`
-            : 'Running balance week by week'
-        }
-      >
-        {series.length ? (
-          <BalanceArea data={series} chrome={chrome} currency={cur} color={accent} />
-        ) : (
-          <p className="text-sm text-[#898781] py-8 text-center">Not enough data yet.</p>
-        )}
-      </Card>
-
-      <Card
-        title="Weekly cash flow"
-        subtitle="Money in minus money out each week — above the line is a surplus, below is a shortfall"
-      >
-        {series.length ? (
-          <WeeklyNetLine data={series} chrome={chrome} currency={cur} />
-        ) : (
-          <p className="text-sm text-[#898781] py-8 text-center">Not enough data yet.</p>
-        )}
+      <Card title="Balance over time" subtitle="Your running balance, week by week.">
+        <BalanceArea data={range === 'all' ? fullSeries : lastNWeeks(fullSeries, Number(range))} chrome={chrome} currency={cur} color={accent} />
       </Card>
     </div>
   )
-}
-
-// Net change in balance across the displayed weeks (sum of weekly nets).
-function currentBalanceInRange(series) {
-  return series.reduce((s, w) => s + w.net, 0)
 }
